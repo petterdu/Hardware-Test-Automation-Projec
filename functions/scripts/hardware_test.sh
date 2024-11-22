@@ -25,16 +25,24 @@ run_gpu_test() {
     echo $PASSWORD | sudo -S glmark2
 }
 
-# Memtester 테스트 함수
-run_memtester_test() {
+# 메모리 테스트 함수
+run_memory_test() {
     PASSWORD=$(get_password)
-    echo $PASSWORD | sudo -S memtester 1024M 3
+    SIZE=$2
+    REPEAT=$3
+    echo $PASSWORD | sudo -S nice -n -10 memtester $SIZE $REPEAT
 }
 
-# Stress-ng 테스트 함수
-run_stress_test() {
+# 파티션 목록 검색 함수
+list_partitions() {
+    lsblk -ln -o NAME,TYPE | awk '$2 == "part" && $1 ~ /^mmcblk0p/ {print $1}'
+}
+
+# 디스크 불량 테스트 함수
+run_disk_test() {
     PASSWORD=$(get_password)
-    echo $PASSWORD | sudo -S stress-ng --vm 2 --vm-bytes 1G --timeout 60s
+    PARTITION=$2
+    echo $PASSWORD | sudo -S fsck -n /dev/$PARTITION
 }
 
 # 스크립트가 받는 인자에 따라 실행할 테스트 결정
@@ -46,13 +54,20 @@ case "$1" in
         run_gpu_test
         ;;
     "memtester")
-        run_memtester_test
+        run_memory_test "$@"
         ;;
     "stress")
-        run_stress_test
+        PASSWORD=$(get_password)
+        echo $PASSWORD | sudo -S stress-ng --vm 2 --vm-bytes 1G --timeout 60s
+        ;;
+    "list_partitions")
+        list_partitions
+        ;;
+    "disk_test")
+        run_disk_test "$@"
         ;;
     *)
-        echo "사용법: $0 {cpu|gpu|memtester|stress}"
+        echo "사용법: $0 {cpu|gpu|memtester|stress|list_partitions|disk_test} [size] [repeat|partition]"
         exit 1
         ;;
 esac
