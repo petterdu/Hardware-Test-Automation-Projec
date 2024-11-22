@@ -1,4 +1,4 @@
-Note: Currently, only CPU, GPU, Password management, and Library installation features have been implemented.
+Note: Currently, only CPU, GPU, memory, disk , Password management, and Library installation features have been implemented.
 
 # Hardware Test Automation Project
 
