@@ -1,33 +1,77 @@
 import subprocess
-import time
+import os
 from PyQt5.QtCore import QObject, pyqtSignal
 
 class LanTestWorker(QObject):
-    progress_signal = pyqtSignal(int)
     result_signal = pyqtSignal(str)
 
-    def run_lan_test(self):
-        # 스크립트 경로 설정
-        script_path = "./functions/scripts/hardware_test.sh"
+    def __init__(self):
+        super().__init__()
+        self.lan_ports = []
 
-        # 스크립트 실행 - 'lan' 인자를 전달하여 LAN 포트 테스트 실행
-        process = subprocess.Popen(['bash', script_path, 'lan'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    def find_lan_ports(self):
+        # hardware_test.sh 경로 설정
+        script_path = os.path.join(os.getcwd(), 'functions/scripts/hardware_test.sh')
 
-        # 진행률 업데이트 (시간 기반)
-        total_time = 60  # 테스트 시간 60초
-        start_time = time.time()
+        # LAN 포트 목록 검색 명령어 실행
+        command = ["bash", script_path, "list_lan_ports"]
+        try:
+            process = subprocess.Popen(command, stdout=subprocess.PIPE, text=True)
+            stdout, _ = process.communicate()
 
-        while process.poll() is None:
-            elapsed_time = time.time() - start_time
-            progress = int((elapsed_time / total_time) * 100)
-            self.progress_signal.emit(progress)  # 진행률을 시그널로 보냄
-            time.sleep(1)
+            # 결과에서 LAN 포트 목록 추출
+            self.lan_ports = [line.strip() for line in stdout.splitlines() if line.strip()]
+        except Exception as e:
+            print(f"LAN 포트 검색 오류: {e}")
 
-        stdout, stderr = process.communicate()
+    def check_lan_port_status(self):
+        # LAN 포트 검색
+        self.find_lan_ports()
 
-        # 테스트 결과 확인 및 시그널로 전달
-        if "successful run completed" in stdout or "successful run completed" in stderr:
-            self.result_signal.emit("success")
-        else:
-            self.result_signal.emit("failure")
+        # hardware_test.sh 경로 설정
+        script_path = os.path.join(os.getcwd(), 'functions/scripts/hardware_test.sh')
+
+        # 각 LAN 포트 상태 확인
+        for port in self.lan_ports:
+            command = ["bash", script_path, "lan_status", port]
+
+            try:
+                process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                stdout, stderr = process.communicate()
+
+                # 결과 출력
+                print(f"STDOUT ({port}):", stdout)
+                print(f"STDERR ({port}):", stderr)
+
+                # 포트 상태 판별
+                if "Link detected: yes" in stdout:
+                    self.result_signal.emit(f"{port}: 활성화됨 (UP)")
+                else:
+                    self.result_signal.emit(f"{port}: 비활성화됨 (DOWN)")
+
+            except Exception as e:
+                print(f"오류 발생 ({port}): {e}")
+                self.result_signal.emit(f"{port}: 오류 발생")
+
+    def run_ping_test(self):
+        # hardware_test.sh 경로 설정
+        script_path = os.path.join(os.getcwd(), 'functions/scripts/hardware_test.sh')
+        command = ["bash", script_path, "ping_test"]
+
+        try:
+            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            stdout, stderr = process.communicate()
+
+            # 핑 테스트 결과 출력
+            print(f"핑 테스트 STDOUT: {stdout}")
+            print(f"핑 테스트 STDERR: {stderr}")
+
+            if "0% packet loss" in stdout:
+                self.result_signal.emit("핑 테스트 성공")
+            else:
+                self.result_signal.emit("핑 테스트 실패")
+
+        except Exception as e:
+            print(f"핑 테스트 오류: {e}")
+            self.result_signal.emit("핑 테스트 오류 발생")
 

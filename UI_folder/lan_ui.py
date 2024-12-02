@@ -1,47 +1,116 @@
-from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QProgressBar
+import os
+from PyQt5.QtGui import QMovie
+from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QWidget, QProgressBar
 from PyQt5.QtCore import QThread
 from functions.lan_test_function import LanTestWorker
 
-class LanTestUI:
+class LanTestUI(QWidget):
     def __init__(self):
+        super().__init__()
         self.layout = QVBoxLayout()
         self.initUI()
 
     def initUI(self):
-        # LAN 포트 불량 테스트 버튼 추가
-        self.add_lan_test_button("LAN 포트 불량 테스트", "LAN 포트 테스트 결과", self.start_lan_test)
+        # LAN 포트 테스트 버튼 및 결과 레이블 추가
+        horizontal_layout = QHBoxLayout()
+
+        self.lan_test_button = QPushButton("LAN 포트 불량 테스트")
+        self.lan_test_button.setFixedHeight(40)
+        self.lan_test_button.clicked.connect(self.start_lan_test)
+        horizontal_layout.addWidget(self.lan_test_button)
+
+        self.ping_test_button = QPushButton("핑 테스트")
+        self.ping_test_button.setFixedHeight(40)
+        self.ping_test_button.setEnabled(False)  # 초기에는 비활성화
+        self.ping_test_button.clicked.connect(self.start_ping_test)
+        horizontal_layout.addWidget(self.ping_test_button)
+
+        # 로딩 GIF 설정
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        gif_path = os.path.join(base_path, "loading.gif")
+        self.loading_movie = QMovie(gif_path)
+        self.loading_label = QLabel(self)
+        self.loading_label.setMovie(self.loading_movie)
+        self.loading_label.setFixedSize(30, 30)
+        self.loading_label.setScaledContents(True)
+        self.loading_label.hide()  # 초기에는 숨김 상태
+
+        # 결과 레이블 추가
+        self.result_label = QLabel("테스트 결과 대기 중")
+
+        # 로딩 GIF와 결과 레이블 순서 변경
+        horizontal_layout.addWidget(self.loading_label)
+        horizontal_layout.addWidget(self.result_label)
+
+        self.layout.addLayout(horizontal_layout)
 
     def get_layout(self):
         return self.layout
 
-    def add_lan_test_button(self, button_text, label_text, callback=None):
-        horizontal_layout = QHBoxLayout()
-
-        button = QPushButton(button_text)
-        button.setEnabled(False)
-        button.setFixedHeight(40)
-        if callback:
-            button.clicked.connect(callback)
-        horizontal_layout.addWidget(button)
-        self.lan_test_button = button
-
-        progress_bar = QProgressBar()
-        progress_bar.setValue(0)
-        progress_bar.setFixedWidth(150)
-        horizontal_layout.addWidget(progress_bar)
-        self.lan_test_progress_bar = progress_bar
-
-        result_label = QLabel(label_text)
-        horizontal_layout.addWidget(result_label)
-        self.lan_test_result_label = result_label
-
-        self.layout.addLayout(horizontal_layout)
+    def set_test_buttons_enabled(self, enabled):
+        # 테스트 버튼 활성화/비활성화
+        self.lan_test_button.setEnabled(enabled)
+        self.ping_test_button.setEnabled(False)  # 초기에는 핑 테스트 버튼을 비활성화
 
     def start_lan_test(self):
-        # 코드 구현 (LAN 테스트 시작)
-        pass
+        # QThread를 사용하여 LAN 테스트 작업 실행
+        self.thread = QThread()
+        self.worker = LanTestWorker()
 
-    def set_test_buttons_enabled(self, enabled):
-        if hasattr(self, 'lan_test_button'):
-            self.lan_test_button.setEnabled(enabled)
+        self.worker.moveToThread(self.thread)
+
+        # 스레드 시작 시 작업 실행 연결
+        self.thread.started.connect(self.worker.check_lan_port_status)
+        self.worker.result_signal.connect(self.update_result)
+        self.worker.result_signal.connect(self.thread.quit)
+
+        # 스레드 시작
+        self.thread.start()
+
+    def start_ping_test(self):
+        # 핑 테스트 버튼을 누르면 '핑 테스트 중' 문구 표시
+        self.result_label.setText("핑 테스트 중...")
+        self.result_label.setStyleSheet("color: blue; font-weight: bold;")
+        self.loading_label.show()
+        self.loading_movie.start()
+        self.ping_test_button.setEnabled(False)  # 핑 테스트 중에는 버튼 비활성화
+
+        # QThread를 사용하여 핑 테스트 작업 실행
+        self.thread = QThread()
+        self.worker = LanTestWorker()
+
+        self.worker.moveToThread(self.thread)
+
+        # 스레드 시작 시 작업 실행 연결
+        self.thread.started.connect(self.worker.run_ping_test)
+        self.worker.result_signal.connect(self.update_ping_result)
+        self.worker.result_signal.connect(self.thread.quit)
+
+        # 스레드 시작
+        self.thread.start()
+
+    def update_result(self, result):
+        # 결과 업데이트
+        if "활성화됨" in result:
+            self.result_label.setText(f"{result} - 핑 테스트를 마저 진행해 주세요")
+            self.result_label.setStyleSheet("color: green; font-weight: bold;")
+            self.ping_test_button.setEnabled(True)  # 활성화된 LAN 포트가 있으면 핑 테스트 버튼 활성화
+        else:
+            self.result_label.setText(result)
+            self.result_label.setStyleSheet("color: red; font-weight: bold;")
+            self.ping_test_button.setEnabled(False)  # 비활성화된 경우 핑 테스트 버튼 비활성화
+
+    def update_ping_result(self, result):
+        # 핑 테스트 완료 시 로딩 GIF 숨김
+        self.loading_label.hide()
+        self.loading_movie.stop()
+
+        # 핑 테스트 결과 업데이트
+        if "성공" in result:
+            self.result_label.setText(result)
+            self.result_label.setStyleSheet("color: green; font-weight: bold;")
+        else:
+            self.result_label.setText(result)
+            self.result_label.setStyleSheet("color: red; font-weight: bold;")
+        self.ping_test_button.setEnabled(False)  # 핑 테스트 후에는 버튼 비활성화
 

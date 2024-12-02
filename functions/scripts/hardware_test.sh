@@ -45,6 +45,26 @@ run_disk_test() {
     echo $PASSWORD | sudo -S fsck -n /dev/$PARTITION
 }
 
+# LAN 포트 목록 검색 함수
+list_lan_ports() {
+    ip link show | awk -F: '$0 ~ "^[2-9]:" {print $2}' | tr -d ' '
+}
+
+# LAN 포트 상태 확인 함수
+# LAN 포트 상태 확인 함수
+check_lan_port_status() {
+    PORT=$2
+    PASSWORD=$(get_password)
+    echo $PASSWORD | sudo -S ethtool $PORT 2>&1
+}
+
+
+# 핑 테스트 함수
+run_ping_test() {
+    ping -c 4 8.8.8.8
+}
+
+
 # 스크립트가 받는 인자에 따라 실행할 테스트 결정
 case "$1" in
     "cpu")
@@ -66,8 +86,17 @@ case "$1" in
     "disk_test")
         run_disk_test "$@"
         ;;
+    "list_lan_ports")
+        list_lan_ports
+        ;;
+    "lan_status")
+        check_lan_port_status "$@"
+        ;;
+    "ping_test")
+        run_ping_test
+        ;;
     *)
-        echo "사용법: $0 {cpu|gpu|memtester|stress|list_partitions|disk_test} [size] [repeat|partition]"
+        echo "사용법: $0 {cpu|gpu|memtester|stress|list_partitions|disk_test|list_lan_ports|lan_status|ping_test} [size] [repeat|partition|port]"
         exit 1
         ;;
 esac
