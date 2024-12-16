@@ -21,6 +21,7 @@ class MainUI(QWidget):
         # 라이브러리 설치 UI 추가
         self.library_installer_ui = LibraryInstallerUI()
         self.layout.addLayout(self.library_installer_ui.get_layout(), stretch=0)
+        self.library_installer_ui.install_callback = self.set_all_buttons_enabled  # 설치 상태 확인 후 콜백 등록
 
         # 비밀번호 UI 추가
         self.password_ui = PasswordUI()
@@ -29,39 +30,32 @@ class MainUI(QWidget):
         # CPU 테스트 UI 추가
         self.cpu_test_ui = CpuTestUI()
         self.layout.addLayout(self.cpu_test_ui.get_layout(), stretch=0)
-        self.cpu_test_ui.start_cpu_test_callback = self.set_all_buttons_enabled
 
         # GPU 테스트 UI 추가
         self.gpu_test_ui = GpuTestUI()
         self.layout.addLayout(self.gpu_test_ui.get_layout(), stretch=0)
-        self.gpu_test_ui.start_gpu_test_callback = self.set_all_buttons_enabled
 
         # 메모리 테스트 UI 추가
         self.memory_test_ui = MemoryTestUI()
         self.layout.addLayout(self.memory_test_ui.get_layout(), stretch=0)
-        self.memory_test_ui.start_memory_test_callback = self.set_all_buttons_enabled
 
         # 디스크 테스트 UI 추가
         self.disk_test_ui = DiskTestUI()
         self.layout.addLayout(self.disk_test_ui.get_layout(), stretch=0)
-        self.disk_test_ui.start_disk_test_callback = self.set_all_buttons_enabled
 
         # LAN 포트 테스트 UI 추가
         self.lan_test_ui = LanTestUI()
         self.layout.addLayout(self.lan_test_ui.get_layout(), stretch=0)
-        self.lan_test_ui.start_lan_test_callback = self.set_all_buttons_enabled
 
         # USB 포트 테스트 UI 추가
         self.usb_test_ui = UsbTestUI()
         self.layout.addLayout(self.usb_test_ui.get_layout(), stretch=0)
-        self.usb_test_ui.start_usb_test_callback = self.set_all_buttons_enabled
 
         self.setLayout(self.layout)
         self.setWindowTitle("하드웨어 검사 프로그램 - 메인 UI")
 
         # 라이브러리 확인 및 설치 시작
         self.library_installer_ui.check_libraries()
-        self.set_all_buttons_enabled(True)  # 라이브러리 확인 후 테스트 버튼 활성화
 
     def set_all_buttons_enabled(self, enabled):
         # 모든 UI 테스트 버튼 활성화/비활성화
@@ -71,6 +65,7 @@ class MainUI(QWidget):
         self.disk_test_ui.set_test_buttons_enabled(enabled)
         self.lan_test_ui.set_test_buttons_enabled(enabled)
         self.usb_test_ui.set_test_buttons_enabled(enabled)
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
