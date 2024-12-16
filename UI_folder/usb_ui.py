@@ -77,7 +77,11 @@ class UsbTestUI(QWidget):
 
         self.usb_status_label.setText(f"USB 상태: {usb_path}에 연결됨")
 
-        self.set_test_buttons_enabled(False)  # 모든 버튼 비활성화
+        # **다른 UI 버튼 비활성화 콜백 호출**
+        if hasattr(self, "start_usb_test_callback") and self.start_usb_test_callback:
+            self.start_usb_test_callback(False)
+
+        self.set_test_buttons_enabled(False)  # USB 버튼 비활성화
 
         # 로딩 GIF 및 프로그레스 바 초기화
         self.loading_label.show()
@@ -97,7 +101,9 @@ class UsbTestUI(QWidget):
         self.thread.started.connect(self.worker.run_usb_test)
         self.worker.result_signal.connect(lambda: self.loading_label.hide())
         self.worker.result_signal.connect(lambda: self.loading_movie.stop())
-        self.worker.result_signal.connect(lambda: self.set_test_buttons_enabled(True))
+        
+        # **USB 테스트 완료 후 다른 버튼 활성화**
+        self.worker.result_signal.connect(lambda: self.start_usb_test_callback(True))
         self.worker.result_signal.connect(self.thread.quit)
         self.thread.finished.connect(self.thread.deleteLater)
         self.thread.start()
