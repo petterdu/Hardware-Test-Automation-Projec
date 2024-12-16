@@ -64,6 +64,44 @@ run_ping_test() {
     ping -c 4 8.8.8.8
 }
 
+# USB 데이터 생성
+run_usb_test_create() {
+    PASSWORD=$(get_password)
+    echo "USB에 데이터 생성 중..."
+    echo $PASSWORD | sudo -S dd if=/dev/zero of=$1/testfile bs=1M count=100
+    if [ $? -eq 0 ]; then
+        echo "데이터 생성 완료"
+    else
+        echo "데이터 생성 실패"
+    fi
+}
+
+# USB 데이터 복사
+run_usb_test_copy() {
+    PASSWORD=$(get_password)
+    echo "USB 데이터 복사 중..."
+    echo $PASSWORD | sudo -S cp $1/testfile /tmp/testfile_copy
+    if [ $? -eq 0 ]; then
+        echo "데이터 복사 완료"
+    else
+        echo "데이터 복사 실패"
+    fi
+}
+
+# USB 데이터 비교
+run_usb_test_compare() {
+    echo "USB 데이터 비교 중..."
+    USB_MD5=$(md5sum $1/testfile | awk '{ print $1 }')
+    PC_MD5=$(md5sum /tmp/testfile_copy | awk '{ print $1 }')
+
+    if [ "$USB_MD5" = "$PC_MD5" ]; then
+        echo "The files are identical."
+    else
+        echo "The files are different."
+    fi
+}
+
+
 
 # 스크립트가 받는 인자에 따라 실행할 테스트 결정
 case "$1" in
@@ -95,8 +133,17 @@ case "$1" in
     "ping_test")
         run_ping_test
         ;;
+    "usb_test_create")
+        run_usb_test_create "$2"
+        ;;
+    "usb_test_copy")
+        run_usb_test_copy "$2"
+        ;;
+    "usb_test_compare")
+        run_usb_test_compare "$2"
+        ;;
     *)
-        echo "사용법: $0 {cpu|gpu|memtester|stress|list_partitions|disk_test|list_lan_ports|lan_status|ping_test} [size] [repeat|partition|port]"
+        echo "사용법: $0 {cpu|gpu|memtester|stress|list_partitions|disk_test|list_lan_ports|lan_status|ping_test|usb_test_create|usb_test_copy|usb_test_compare} [size] [repeat|partition|port|usb_path]"
         exit 1
         ;;
 esac
